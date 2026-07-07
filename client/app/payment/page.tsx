@@ -21,7 +21,7 @@ export default function PaymentPage() {
     const shippingAddress = `${formData.get("fname")} ${formData.get("lname")}, ${formData.get("address")}, ${formData.get("city")}, ${formData.get("state")} - ${formData.get("pincode")}`;
 
     try {
-      const response = await fetch("/api/orders", {
+      const response = await fetch("http://localhost:4000/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

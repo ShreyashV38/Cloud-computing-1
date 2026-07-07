@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "../../../lib/prisma";
+import { Router, Request, Response } from "express";
+import { prisma } from "../prisma";
 
-// GET /api/orders — List all orders (demo: returns all orders)
-export async function GET() {
+const router = Router();
+
+// GET /api/orders
+router.get("/", async (req: Request, res: Response) => {
   const orders = await prisma.order.findMany({
     include: {
       items: {
@@ -17,20 +19,17 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(orders);
-}
+  res.json(orders);
+});
 
-// POST /api/orders — Create a new order
-export async function POST(request: NextRequest) {
+// POST /api/orders
+router.post("/", async (req: Request, res: Response) => {
   try {
-    const body = await request.json();
+    const body = req.body;
     const { items, paymentMethod, shippingAddress, total } = body;
 
     if (!items || !items.length || !paymentMethod || !shippingAddress) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Use demo user for now
@@ -68,12 +67,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(order, { status: 201 });
+    res.status(201).json(order);
   } catch (error) {
     console.error("Order creation error:", error);
-    return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
-    );
+    res.status(500).json({ error: "Failed to create order" });
   }
-}
+});
+
+export default router;

@@ -1,0 +1,20 @@
+{
+  "name": "ecom-db",
+  "version": "1.0.0",
+  "description": "Database layer — Prisma schema, migrations, and seed",
+  "scripts": {
+    "generate": "npx prisma generate",
+    "db:push": "npx prisma db push",
+    "seed": "npx tsx prisma/seed.ts",
+    "studio": "npx prisma studio",
+    "reset": "npx prisma db push --force-reset && npm run seed"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}

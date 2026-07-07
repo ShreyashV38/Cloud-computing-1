@@ -1,15 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "../../../lib/prisma";
+import { Router, Request, Response } from "express";
+import { prisma } from "../prisma";
 
-// GET /api/reviews?productId=xxx — Get reviews for a product
-export async function GET(request: NextRequest) {
-  const productId = request.nextUrl.searchParams.get("productId");
+const router = Router();
+
+// GET /api/reviews?productId=xxx
+router.get("/", async (req: Request, res: Response) => {
+  const productId = req.query.productId as string;
 
   if (!productId) {
-    return NextResponse.json(
-      { error: "productId is required" },
-      { status: 400 }
-    );
+    return res.status(400).json({ error: "productId is required" });
   }
 
   const reviews = await prisma.review.findMany({
@@ -20,20 +19,17 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(reviews);
-}
+  res.json(reviews);
+});
 
-// POST /api/reviews — Create a review
-export async function POST(request: NextRequest) {
+// POST /api/reviews
+router.post("/", async (req: Request, res: Response) => {
   try {
-    const body = await request.json();
+    const body = req.body;
     const { productId, rating, comment } = body;
 
     if (!productId || !rating) {
-      return NextResponse.json(
-        { error: "productId and rating are required" },
-        { status: 400 }
-      );
+      return res.status(400).json({ error: "productId and rating are required" });
     }
 
     // Use demo user
@@ -74,12 +70,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(review, { status: 201 });
+    res.status(201).json(review);
   } catch (error) {
     console.error("Review creation error:", error);
-    return NextResponse.json(
-      { error: "Failed to create review" },
-      { status: 500 }
-    );
+    res.status(500).json({ error: "Failed to create review" });
   }
-}
+});
+
+export default router;
