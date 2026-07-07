@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    Order[]
+  reviews   Review[]
+  addresses Address[]
+}
+
+// ─── Categories ──────────────────────────────────────────
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  image       String?
+  createdAt   DateTime @default(now())
+
+  products Product[]
+}
+
+// ─── Products ────────────────────────────────────────────
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  price       Float
+  image       String
+  description String?
+  stock       Int      @default(50)
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  orderItems OrderItem[]
+  reviews    Review[]
+}
+
+// ─── Orders ──────────────────────────────────────────────
+model Order {
+  id              String   @id @default(cuid())
+  status          String   @default("pending") // pending, confirmed, shipped, delivered, cancelled
+  total           Float
+  paymentMethod   String // upi, card, cod
+  shippingAddress String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  items OrderItem[]
+}
+
+// ─── Order Items ─────────────────────────────────────────
+model OrderItem {
+  id       String @id @default(cuid())
+  quantity Int
+  price    Float // price at time of purchase
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Reviews ─────────────────────────────────────────────
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int // 1–5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Addresses ───────────────────────────────────────────
+model Address {
+  id        String  @id @default(cuid())
+  label     String  @default("Home") // Home, Work, Other
+  name      String
+  phone     String
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  isDefault Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}

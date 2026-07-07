@@ -8,7 +8,7 @@ export default async function ProductPage({
 }) {
   const { id } = await params;
 
-  const res = await fetch(`http://localhost:4000/api/products/${id}`, {
+  const res = await fetch(`http://127.0.0.1:4000/api/products/${id}`, {
     cache: "no-store",
   });
 

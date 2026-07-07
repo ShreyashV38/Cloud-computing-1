@@ -1,4 +1,4 @@
-import express from "express";
+import express from "express"; // Restart 2
 import cors from "cors";
 import productsRouter from "./routes/products";
 import categoriesRouter from "./routes/categories";

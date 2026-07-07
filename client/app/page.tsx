@@ -10,7 +10,7 @@ export default async function HomePage({
 
   // If search is active, fetch from search endpoint
   if (searchQuery) {
-    const res = await fetch(`http://localhost:4000/api/products?search=${searchQuery}`, {
+    const res = await fetch(`http://127.0.0.1:4000/api/products?search=${searchQuery}`, {
       cache: "no-store", // dynamic
     });
     const searchResults = await res.json();
@@ -25,7 +25,7 @@ export default async function HomePage({
   }
 
   // Default: fetch categories with their products
-  const res = await fetch("http://localhost:4000/api/categories", {
+  const res = await fetch("http://127.0.0.1:4000/api/categories", {
     cache: "no-store",
   });
   const categoriesWithProducts = await res.json();
