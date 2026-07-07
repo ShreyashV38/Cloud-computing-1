@@ -84,6 +84,9 @@ Prisma.NullTypes = {
  * Enums
  */
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
+  ReadUncommitted: 'ReadUncommitted',
+  ReadCommitted: 'ReadCommitted',
+  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -166,6 +169,11 @@ exports.Prisma.SortOrder = {
   desc: 'desc'
 };
 
+exports.Prisma.QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+};
+
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
@@ -219,7 +227,7 @@ const config = {
   "datasourceNames": [
     "db"
   ],
-  "activeProvider": "sqlite",
+  "activeProvider": "postgresql",
   "inlineDatasources": {
     "db": {
       "url": {
@@ -228,8 +236,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = env(\"DATABASE_URL\")\n}\n\n// ─── Users ───────────────────────────────────────────────\nmodel User {\n  id        String   @id @default(cuid())\n  name      String\n  email     String   @unique\n  phone     String?\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  orders    Order[]\n  reviews   Review[]\n  addresses Address[]\n}\n\n// ─── Categories ──────────────────────────────────────────\nmodel Category {\n  id          String   @id @default(cuid())\n  name        String   @unique\n  slug        String   @unique\n  description String?\n  image       String?\n  createdAt   DateTime @default(now())\n\n  products Product[]\n}\n\n// ─── Products ────────────────────────────────────────────\nmodel Product {\n  id          String   @id @default(cuid())\n  name        String\n  price       Float\n  image       String\n  description String?\n  stock       Int      @default(50)\n  rating      Float    @default(0)\n  reviewCount Int      @default(0)\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n\n  categoryId String\n  category   Category @relation(fields: [categoryId], references: [id])\n\n  orderItems OrderItem[]\n  reviews    Review[]\n}\n\n// ─── Orders ──────────────────────────────────────────────\nmodel Order {\n  id              String   @id @default(cuid())\n  status          String   @default(\"pending\") // pending, confirmed, shipped, delivered, cancelled\n  total           Float\n  paymentMethod   String // upi, card, cod\n  shippingAddress String\n  createdAt       DateTime @default(now())\n  updatedAt       DateTime @updatedAt\n\n  userId String\n  user   User   @relation(fields: [userId], references: [id])\n\n  items OrderItem[]\n}\n\n// ─── Order Items ─────────────────────────────────────────\nmodel OrderItem {\n  id       String @id @default(cuid())\n  quantity Int\n  price    Float // price at time of purchase\n\n  orderId   String\n  order     Order   @relation(fields: [orderId], references: [id])\n  productId String\n  product   Product @relation(fields: [productId], references: [id])\n}\n\n// ─── Reviews ─────────────────────────────────────────────\nmodel Review {\n  id        String   @id @default(cuid())\n  rating    Int // 1–5\n  comment   String?\n  createdAt DateTime @default(now())\n\n  userId    String\n  user      User    @relation(fields: [userId], references: [id])\n  productId String\n  product   Product @relation(fields: [productId], references: [id])\n}\n\n// ─── Addresses ───────────────────────────────────────────\nmodel Address {\n  id        String  @id @default(cuid())\n  label     String  @default(\"Home\") // Home, Work, Other\n  name      String\n  phone     String\n  line1     String\n  line2     String?\n  city      String\n  state     String\n  pincode   String\n  isDefault Boolean @default(false)\n\n  userId String\n  user   User   @relation(fields: [userId], references: [id])\n}\n",
-  "inlineSchemaHash": "fc8cfdd9c9000ee5bd170def44c885e0c3001e942b6e18932dcf3935a6682133",
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\n// ─── Users ───────────────────────────────────────────────\nmodel User {\n  id        String   @id @default(cuid())\n  name      String\n  email     String   @unique\n  phone     String?\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  orders    Order[]\n  reviews   Review[]\n  addresses Address[]\n}\n\n// ─── Categories ──────────────────────────────────────────\nmodel Category {\n  id          String   @id @default(cuid())\n  name        String   @unique\n  slug        String   @unique\n  description String?\n  image       String?\n  createdAt   DateTime @default(now())\n\n  products Product[]\n}\n\n// ─── Products ────────────────────────────────────────────\nmodel Product {\n  id          String   @id @default(cuid())\n  name        String\n  price       Float\n  image       String\n  description String?\n  stock       Int      @default(50)\n  rating      Float    @default(0)\n  reviewCount Int      @default(0)\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n\n  categoryId String\n  category   Category @relation(fields: [categoryId], references: [id])\n\n  orderItems OrderItem[]\n  reviews    Review[]\n}\n\n// ─── Orders ──────────────────────────────────────────────\nmodel Order {\n  id              String   @id @default(cuid())\n  status          String   @default(\"pending\") // pending, confirmed, shipped, delivered, cancelled\n  total           Float\n  paymentMethod   String // upi, card, cod\n  shippingAddress String\n  createdAt       DateTime @default(now())\n  updatedAt       DateTime @updatedAt\n\n  userId String\n  user   User   @relation(fields: [userId], references: [id])\n\n  items OrderItem[]\n}\n\n// ─── Order Items ─────────────────────────────────────────\nmodel OrderItem {\n  id       String @id @default(cuid())\n  quantity Int\n  price    Float // price at time of purchase\n\n  orderId   String\n  order     Order   @relation(fields: [orderId], references: [id])\n  productId String\n  product   Product @relation(fields: [productId], references: [id])\n}\n\n// ─── Reviews ─────────────────────────────────────────────\nmodel Review {\n  id        String   @id @default(cuid())\n  rating    Int // 1–5\n  comment   String?\n  createdAt DateTime @default(now())\n\n  userId    String\n  user      User    @relation(fields: [userId], references: [id])\n  productId String\n  product   Product @relation(fields: [productId], references: [id])\n}\n\n// ─── Addresses ───────────────────────────────────────────\nmodel Address {\n  id        String  @id @default(cuid())\n  label     String  @default(\"Home\") // Home, Work, Other\n  name      String\n  phone     String\n  line1     String\n  line2     String?\n  city      String\n  state     String\n  pincode   String\n  isDefault Boolean @default(false)\n\n  userId String\n  user   User   @relation(fields: [userId], references: [id])\n}\n",
+  "inlineSchemaHash": "7ad36138e298ddf3bca1b1786f580f9bcceade1d07e4101d88ce4c75d3e64f10",
   "copyEngine": true
 }
 config.dirname = '/'
