@@ -1,0 +1,6 @@
+simple ecom website/app
+
+products page
+cart
+payment page
+
