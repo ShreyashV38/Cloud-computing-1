@@ -5,23 +5,46 @@ import { useCart } from "../context/CartContext";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, CreditCard, Lock, Smartphone, MapPin } from "lucide-react";
 
+const API_BASE = "http://127.0.0.1:4000";
+
 export default function PaymentPage() {
   const { cartItems, cartTotal, clearCart } = useCart();
   const router = useRouter();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("upi");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setPaymentError("");
 
     const formData = new FormData(e.currentTarget);
     const shippingAddress = `${formData.get("fname")} ${formData.get("lname")}, ${formData.get("address")}, ${formData.get("city")}, ${formData.get("state")} - ${formData.get("pincode")}`;
 
     try {
-      const response = await fetch("http://127.0.0.1:4000/api/orders", {
+      // Step 1: Process payment via payment-service
+      const paymentRes = await fetch(`${API_BASE}/api/payments/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: cartTotal,
+          method: paymentMethod,
+        }),
+      });
+
+      const paymentData = await paymentRes.json();
+
+      if (!paymentRes.ok || !paymentData.success) {
+        setPaymentError(paymentData.message || "Payment failed. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Step 2: Create order via order-service (which also triggers notification-service)
+      const orderRes = await fetch(`${API_BASE}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -36,8 +59,9 @@ export default function PaymentPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Order failed");
+      if (!orderRes.ok) throw new Error("Order failed");
 
+      // Step 3: Clear cart and show success
       setIsSubmitting(false);
       setIsSuccess(true);
       clearCart();
@@ -48,11 +72,7 @@ export default function PaymentPage() {
     } catch (error) {
       console.error("Payment error:", error);
       setIsSubmitting(false);
-      setIsSuccess(true);
-      clearCart();
-      setTimeout(() => {
-        router.push("/orders");
-      }, 3000);
+      setPaymentError("Something went wrong. Please try again.");
     }
   };
 
@@ -91,7 +111,7 @@ export default function PaymentPage() {
           Order Confirmed!
         </h2>
         <p className="text-sm mb-4" style={{ color: "var(--accent-cta)", fontWeight: 500 }}>
-          Saved to your order history
+          Payment processed &amp; confirmation email sent
         </p>
         <p style={{ color: "var(--text-secondary)", maxWidth: "400px" }}>
           Thank you for your purchase! Your order has been placed and is being processed. Redirecting to orders...
@@ -118,6 +138,21 @@ export default function PaymentPage() {
           <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>
             Total: <span className="font-bold" style={{ color: "var(--text-primary)" }}>₹{cartTotal.toLocaleString("en-IN")}</span>
           </p>
+
+          {paymentError && (
+            <div
+              className="mb-6 p-4 rounded-lg animate-fade-in"
+              style={{
+                background: "#FEF2F2",
+                border: "1px solid #FCA5A5",
+                color: "#DC2626",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+              }}
+            >
+              ⚠️ {paymentError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-8" id="checkout-form">
             {/* Shipping Address */}

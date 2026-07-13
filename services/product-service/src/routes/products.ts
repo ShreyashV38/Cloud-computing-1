@@ -3,23 +3,14 @@ import { prisma } from "../prisma";
 
 const router = Router();
 
-// GET /api/products
+// GET /api/products — list products, optionally filter by category
 router.get("/", async (req: Request, res: Response) => {
   const category = req.query.category as string;
-  const search = req.query.search as string;
   const limit = parseInt((req.query.limit as string) || "50");
 
   const products = await prisma.product.findMany({
     where: {
       ...(category ? { category: { slug: category } } : {}),
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search } },
-              { description: { contains: search } },
-            ],
-          }
-        : {}),
     },
     include: {
       category: { select: { name: true, slug: true } },
@@ -31,7 +22,7 @@ router.get("/", async (req: Request, res: Response) => {
   res.json(products);
 });
 
-// GET /api/products/:id
+// GET /api/products/:id — product detail with reviews and related products
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 

@@ -8,12 +8,13 @@ export default async function HomePage({
   const params = await searchParams;
   const searchQuery = params?.search;
 
-  // If search is active, fetch from search endpoint
+  // If search is active, fetch from search-service via gateway
   if (searchQuery) {
-    const res = await fetch(`http://127.0.0.1:4000/api/products?search=${searchQuery}`, {
+    const res = await fetch(`http://127.0.0.1:4000/api/search?q=${encodeURIComponent(searchQuery)}`, {
       cache: "no-store", // dynamic
     });
-    const searchResults = await res.json();
+    const data = await res.json();
+    const searchResults = data.products || [];
 
     return (
       <HomeClient

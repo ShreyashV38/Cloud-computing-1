@@ -10,6 +10,12 @@ const port = process.env.PORT || 4001;
 app.use(cors());
 app.use(express.json());
 
+// Log incoming requests
+app.use((req, res, next) => {
+  console.log(`[Product Service] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 app.use("/api/products", productsRouter);
 app.use("/api/categories", categoriesRouter);
 
