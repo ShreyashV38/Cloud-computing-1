@@ -1,5 +1,8 @@
 # Start all microservices and gateway
 
+Write-Host "Starting DB Service on port 4010..."
+Start-Process powershell -ArgumentList "-NoExit -Command `"cd db; npm run dev`""
+
 Write-Host "Starting API Gateway on port 4000..."
 Start-Process powershell -ArgumentList "-NoExit -Command `"cd gateway; npm run dev`""
 
@@ -27,6 +30,7 @@ Start-Process powershell -ArgumentList "-NoExit -Command `"cd services/user-serv
 Write-Host ""
 Write-Host "All services started!"
 Write-Host ""
+Write-Host "  DB Service:       http://localhost:4010"
 Write-Host "  Gateway:          http://localhost:4000"
 Write-Host "  Product Service:  http://localhost:4001"
 Write-Host "  Search Service:   http://localhost:4002"
