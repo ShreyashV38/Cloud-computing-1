@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 
 const API_BASE = "http://127.0.0.1:4000";
 
@@ -40,15 +40,29 @@ function getSessionId(): string {
   return sessionId;
 }
 
+// Minimum interval between cart fetches (ms) to prevent rapid-fire requests
+const FETCH_DEBOUNCE_MS = 2000;
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const lastFetchRef = useRef<number>(0);
+  const fetchInFlightRef = useRef<boolean>(false);
 
-  // Fetch cart from cart-service
+  // Fetch cart from cart-service (with dedup guard)
   const fetchCart = useCallback(async () => {
+    const now = Date.now();
+    // Skip if we fetched recently or a fetch is already in-flight
+    if (now - lastFetchRef.current < FETCH_DEBOUNCE_MS || fetchInFlightRef.current) {
+      return;
+    }
+
     try {
       const sessionId = getSessionId();
       if (sessionId === "ssr") return;
+
+      fetchInFlightRef.current = true;
+      lastFetchRef.current = now;
 
       const res = await fetch(`${API_BASE}/api/cart/${sessionId}`);
       const data = await res.json();
@@ -66,6 +80,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to fetch cart:", error);
+    } finally {
+      fetchInFlightRef.current = false;
     }
   }, []);
 
