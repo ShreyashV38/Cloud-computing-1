@@ -1,0 +1,23 @@
+<section class="hero">
+    <h1>Welcome to the Future of Tech</h1>
+    <p>Discover premium gadgets and electronics designed to elevate your life.</p>
+</section>
+
+<section class="product-grid">
+    <% products.forEach(product => { %>
+        <div class="product-card">
+            <div class="product-image" style="background-image: url('<%= product.image_url %>');"></div>
+            <div class="product-info">
+                <h3><%= product.name %></h3>
+                <p class="description"><%= product.description %></p>
+                <div class="product-action">
+                    <span class="price">₹<%= Number(product.price).toLocaleString('en-IN') %></span>
+                    <form action="/cart/add" method="POST">
+                        <input type="hidden" name="productId" value="<%= product.id %>">
+                        <button type="submit" class="btn btn-primary">Add to Cart</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    <% }) %>
+</section>

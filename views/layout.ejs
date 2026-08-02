@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            <a href="/">TechStore</a>
+        </div>
+        <nav>
+            <a href="/" class="nav-link">Products</a>
+            <a href="/cart" class="nav-link cart-link">
+                Cart 
+                <% if (cartCount > 0) { %>
+                    <span class="cart-badge"><%= cartCount %></span>
+                <% } %>
+            </a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <%- include(body) %>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 TechStore. All rights reserved.</p>
+    </footer>
+</body>
+</html>
