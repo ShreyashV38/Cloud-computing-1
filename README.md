@@ -192,23 +192,4 @@ The `docker-compose.yml` defines two services:
 The app container waits for MySQL to be healthy before starting, using the `depends_on` condition.
 
 ---
-
-## 🔄 Monolithic vs Microservices
-
-This project represents the **Phase 1** of the cloud computing assignment. The same application was later decomposed into a **microservices architecture** (available on the `main` branch) with:
-
-| Aspect            | Monolithic (this branch) | Microservices (`main`)    |
-| ----------------- | ------------------------ | ------------------------- |
-| **Services**      | 1 (single process)       | 7+ independent services   |
-| **Database**      | MySQL 8                  | PostgreSQL + Prisma ORM   |
-| **Frontend**      | Server-rendered EJS      | Next.js 16 (SSR + SPA)    |
-| **Routing**       | Express routes           | API Gateway + REST APIs   |
-| **Deployment**    | Single container         | Multi-container compose   |
-| **Fault Isolation**| None — one crash = all down | Per-service isolation   |
-| **Scaling**       | Scale entire app         | Scale individual services |
-
----
-
-## 📄 License
-
-This project was built for academic purposes as part of a Cloud Computing course.
+built for academic purposes as part of a Cloud Computing course.
