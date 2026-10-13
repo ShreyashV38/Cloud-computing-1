@@ -1,6 +1,8 @@
 import ProductDetail from "./ProductDetail";
 import { notFound } from "next/navigation";
 
+const API_URL = process.env.API_URL || "http://127.0.0.1:4000";
+
 export default async function ProductPage({
   params,
 }: {
@@ -8,7 +10,7 @@ export default async function ProductPage({
 }) {
   const { id } = await params;
 
-  const res = await fetch(`http://127.0.0.1:4000/api/products/${id}`, {
+  const res = await fetch(`${API_URL}/api/products/${id}`, {
     cache: "no-store",
   });
 

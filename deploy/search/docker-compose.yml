@@ -1,0 +1,69 @@
+# Search Service VM
+# Run: docker compose up --build -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: search-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecom_microservices
+    volumes:
+      - search-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-service:
+    build:
+      context: ../..
+      dockerfile: db/Dockerfile
+    container_name: search-db-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecom_microservices?schema=public
+      PORT: 4010
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  db-init:
+    build:
+      context: ../..
+      dockerfile: db/Dockerfile.init
+    container_name: search-db-init
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecom_microservices?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  search-service:
+    build:
+      context: ../..
+      dockerfile: services/search-service/Dockerfile
+    container_name: search-service
+    restart: unless-stopped
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+
+volumes:
+  search-db-data:
+    driver: local

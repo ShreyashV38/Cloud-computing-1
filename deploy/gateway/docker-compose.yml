@@ -1,0 +1,38 @@
+# Gateway + Client VM (externally accessible)
+# 1. Copy .env.example to .env
+# 2. Fill in the internal IPs of all service VMs and the external IP of this VM
+# 3. Run: docker compose up --build -d
+
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: gateway/Dockerfile
+    container_name: ecom-gateway
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      PRODUCT_SERVICE_URL: http://${PRODUCT_VM_IP}:4001
+      SEARCH_SERVICE_URL: http://${SEARCH_VM_IP}:4002
+      CART_SERVICE_URL: http://${CART_VM_IP}:4003
+      ORDER_SERVICE_URL: http://${ORDER_VM_IP}:4004
+      PAYMENT_SERVICE_URL: http://${PAYMENT_VM_IP}:4005
+      REVIEW_SERVICE_URL: http://${REVIEW_VM_IP}:4006
+      USER_SERVICE_URL: http://${USER_VM_IP}:4008
+      CORS_ORIGIN: http://${GATEWAY_EXTERNAL_IP}:3000
+
+  client:
+    build:
+      context: ../..
+      dockerfile: client/Dockerfile
+    container_name: ecom-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      API_URL: http://gateway:4000
+      NEXT_PUBLIC_API_URL: http://${GATEWAY_EXTERNAL_IP}:4000
+    depends_on:
+      - gateway

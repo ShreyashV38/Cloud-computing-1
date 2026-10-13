@@ -1,0 +1,24 @@
+# ─── DB Init Container ──────────────────────────────────────
+# Runs prisma db push (schema migration) and seed, then exits.
+# This is a one-shot container — it runs once at startup.
+
+FROM node:20-alpine
+
+WORKDIR /app/db
+
+# Install dependencies
+COPY db/package*.json ./
+RUN npm install
+
+# Copy Prisma schema and config
+COPY db/prisma/ ./prisma/
+COPY db/prisma.config.ts ./
+
+# Generate Prisma client
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
+
+# Copy seed script
+COPY db/src/ ./src/
+
+# Push schema to DB, then seed data
+CMD ["sh", "-c", "npx prisma db push && npx tsx prisma/seed.ts && echo '✅ Database initialized successfully!'"]

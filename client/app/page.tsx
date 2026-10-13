@@ -1,5 +1,7 @@
 import HomeClient from "./components/HomeClient";
 
+const API_URL = process.env.API_URL || "http://127.0.0.1:4000";
+
 export default async function HomePage({
   searchParams,
 }: {
@@ -10,7 +12,7 @@ export default async function HomePage({
 
   // If search is active, fetch from search-service via gateway
   if (searchQuery) {
-    const res = await fetch(`http://127.0.0.1:4000/api/search?q=${encodeURIComponent(searchQuery)}`, {
+    const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(searchQuery)}`, {
       cache: "no-store", // dynamic
     });
     const data = await res.json();
@@ -26,7 +28,7 @@ export default async function HomePage({
   }
 
   // Default: fetch categories with their products
-  const res = await fetch("http://127.0.0.1:4000/api/categories", {
+  const res = await fetch(`${API_URL}/api/categories`, {
     cache: "no-store",
   });
   const categoriesWithProducts = await res.json();

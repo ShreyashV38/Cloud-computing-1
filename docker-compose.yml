@@ -1,0 +1,261 @@
+# ═══════════════════════════════════════════════════════════════
+#  E-Commerce Microservices — Docker Compose
+#  Architecture: Client → Gateway → 7 Microservices → DB Service → PostgreSQL
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── PostgreSQL Database ──────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecom_microservices
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── DB Service (Prisma Gateway) ──────────────────────────
+  db-service:
+    build:
+      context: .
+      dockerfile: db/Dockerfile
+    container_name: ecom-db-service
+    restart: unless-stopped
+    ports:
+      - "4010:4010"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecom_microservices?schema=public
+      PORT: 4010
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ─── DB Init (Schema Push + Seed) — runs once, then exits ─
+  db-init:
+    build:
+      context: .
+      dockerfile: db/Dockerfile.init
+    container_name: ecom-db-init
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecom_microservices?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-net
+    restart: "no"
+
+  # ─── Product Service ──────────────────────────────────────
+  product-service:
+    build:
+      context: .
+      dockerfile: services/product-service/Dockerfile
+    container_name: ecom-product-service
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── Search Service ───────────────────────────────────────
+  search-service:
+    build:
+      context: .
+      dockerfile: services/search-service/Dockerfile
+    container_name: ecom-search-service
+    restart: unless-stopped
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── Cart Service ─────────────────────────────────────────
+  cart-service:
+    build:
+      context: .
+      dockerfile: services/cart-service/Dockerfile
+    container_name: ecom-cart-service
+    restart: unless-stopped
+    ports:
+      - "4003:4003"
+    environment:
+      PORT: 4003
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── Order Service ────────────────────────────────────────
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    container_name: ecom-order-service
+    restart: unless-stopped
+    ports:
+      - "4004:4004"
+    environment:
+      PORT: 4004
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── Payment Service ──────────────────────────────────────
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: ecom-payment-service
+    restart: unless-stopped
+    ports:
+      - "4005:4005"
+    environment:
+      PORT: 4005
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── Review Service ───────────────────────────────────────
+  review-service:
+    build:
+      context: .
+      dockerfile: services/review-service/Dockerfile
+    container_name: ecom-review-service
+    restart: unless-stopped
+    ports:
+      - "4006:4006"
+    environment:
+      PORT: 4006
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── User Service ─────────────────────────────────────────
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: ecom-user-service
+    restart: unless-stopped
+    ports:
+      - "4008:4008"
+    environment:
+      PORT: 4008
+      DB_SERVICE_URL: http://db-service:4010
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  # ─── API Gateway ──────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: ecom-gateway
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      PRODUCT_SERVICE_URL: http://product-service:4001
+      SEARCH_SERVICE_URL: http://search-service:4002
+      CART_SERVICE_URL: http://cart-service:4003
+      ORDER_SERVICE_URL: http://order-service:4004
+      PAYMENT_SERVICE_URL: http://payment-service:4005
+      REVIEW_SERVICE_URL: http://review-service:4006
+      USER_SERVICE_URL: http://user-service:4008
+      CORS_ORIGIN: http://localhost:3000
+    depends_on:
+      - product-service
+      - search-service
+      - cart-service
+      - order-service
+      - payment-service
+      - review-service
+      - user-service
+    networks:
+      - backend-net
+      - frontend-net
+
+  # ─── Next.js Frontend Client ──────────────────────────────
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: ecom-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      API_URL: http://gateway:4000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    depends_on:
+      - gateway
+    networks:
+      - frontend-net
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Networks — Isolate frontend from backend for security
+# ═══════════════════════════════════════════════════════════════
+networks:
+  frontend-net:
+    driver: bridge
+    name: ecom-frontend-net
+  backend-net:
+    driver: bridge
+    name: ecom-backend-net
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Volumes — Persistent storage for PostgreSQL data
+# ═══════════════════════════════════════════════════════════════
+volumes:
+  postgres-data:
+    driver: local
+    name: ecom-postgres-data

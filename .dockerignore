@@ -1,0 +1,45 @@
+# ─── Dependencies ─────────────────────────────────────────
+**/node_modules/
+
+
+# ─── Build outputs ────────────────────────────────────────
+**/.next/
+**/dist/
+**/coverage/
+**/*.tsbuildinfo
+
+# ─── Version control ─────────────────────────────────────
+.git/
+.gitignore
+
+# ─── Environment files (except Docker-specific) ──────────
+.env
+.env.local
+.env.example
+db/.env
+!.env.docker
+
+# ─── IDE / OS files ──────────────────────────────────────
+.DS_Store
+**/.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# ─── Documentation ───────────────────────────────────────
+*.md
+LICENSE
+
+# ─── Media / Screenshots ─────────────────────────────────
+photos/
+
+# ─── Database files (local dev) ──────────────────────────
+**/dev.db
+**/dev.db-journal
+
+# ─── Misc ─────────────────────────────────────────────────
+*.log
+.vercel
+.agents/
+generated/
