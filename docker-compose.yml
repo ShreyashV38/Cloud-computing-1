@@ -1,11 +1,7 @@
-# ═══════════════════════════════════════════════════════════════
-#  E-Commerce Microservices — Docker Compose
-#  Architecture: Client → Gateway → 7 Microservices → DB Service → PostgreSQL
-# ═══════════════════════════════════════════════════════════════
-
+# Services
 services:
 
-  # ─── PostgreSQL Database ──────────────────────────────────
+  # PostgreSQL
   postgres:
     image: postgres:16-alpine
     container_name: ecom-postgres
@@ -26,7 +22,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── DB Service (Prisma Gateway) ──────────────────────────
+  # Database service
   db-service:
     build:
       context: .
@@ -50,7 +46,7 @@ services:
       retries: 5
       start_period: 15s
 
-  # ─── DB Init (Schema Push + Seed) — runs once, then exits ─
+  #runs once, then exits 
   db-init:
     build:
       context: .
@@ -65,7 +61,7 @@ services:
       - backend-net
     restart: "no"
 
-  # ─── Product Service ──────────────────────────────────────
+  # Product 
   product-service:
     build:
       context: .
@@ -83,7 +79,7 @@ services:
     networks:
       - backend-net
 
-  # ─── Search Service ───────────────────────────────────────
+  # Search
   search-service:
     build:
       context: .
@@ -101,7 +97,7 @@ services:
     networks:
       - backend-net
 
-  # ─── Cart Service ─────────────────────────────────────────
+  # Cart
   cart-service:
     build:
       context: .
@@ -119,7 +115,7 @@ services:
     networks:
       - backend-net
 
-  # ─── Order Service ────────────────────────────────────────
+  # Order
   order-service:
     build:
       context: .
@@ -137,7 +133,7 @@ services:
     networks:
       - backend-net
 
-  # ─── Payment Service ──────────────────────────────────────
+  # Payment 
   payment-service:
     build:
       context: .
@@ -155,7 +151,7 @@ services:
     networks:
       - backend-net
 
-  # ─── Review Service ───────────────────────────────────────
+  # Review
   review-service:
     build:
       context: .
@@ -173,7 +169,7 @@ services:
     networks:
       - backend-net
 
-  # ─── User Service ─────────────────────────────────────────
+  # User service
   user-service:
     build:
       context: .
@@ -191,7 +187,7 @@ services:
     networks:
       - backend-net
 
-  # ─── API Gateway ──────────────────────────────────────────
+  # Gateway
   gateway:
     build:
       context: .
@@ -222,7 +218,7 @@ services:
       - backend-net
       - frontend-net
 
-  # ─── Next.js Frontend Client ──────────────────────────────
+  # Frontend
   client:
     build:
       context: .
@@ -239,10 +235,8 @@ services:
     networks:
       - frontend-net
 
+#Network
 
-# ═══════════════════════════════════════════════════════════════
-#  Networks — Isolate frontend from backend for security
-# ═══════════════════════════════════════════════════════════════
 networks:
   frontend-net:
     driver: bridge
@@ -252,9 +246,7 @@ networks:
     name: ecom-backend-net
 
 
-# ═══════════════════════════════════════════════════════════════
-#  Volumes — Persistent storage for PostgreSQL data
-# ═══════════════════════════════════════════════════════════════
+#VOlumes
 volumes:
   postgres-data:
     driver: local
