@@ -5,10 +5,9 @@
 #  Usage: bash auto-deploy.sh
 # ═══════════════════════════════════════════════════════════════
 
-set -e
-
 # ─── Configuration ────────────────────────────────────────────
 ZONE="us-central1-a"
+REGION="us-central1"
 REPO="https://github.com/ShreyashV38/Cloud-computing-1.git"
 BRANCH="main"
 PROJECT_DIR="Cloud-computing-1"
@@ -67,7 +66,7 @@ log_error() {
   echo -e "${RED}  ✘ $1${NC}"
 }
 
-# SSH into a VM and run commands
+# SSH into a VM and run commands (with proper error propagation)
 run_on_vm() {
   local vm_name=$1
   shift
@@ -75,39 +74,89 @@ run_on_vm() {
   
   gcloud compute ssh "$vm_name" \
     --zone="$ZONE" \
-    --command="$commands" \
+    --command="bash -c '$commands'" \
     --quiet \
-    -- -o StrictHostKeyChecking=no -o ConnectTimeout=30
+    -- -o StrictHostKeyChecking=no -o ConnectTimeout=60
 }
 
-# ─── Step 1: Setup Docker on all VMs (parallel) ──────────────
+# ═══════════════════════════════════════════════════════════════
+#  PHASE 0: Set up Cloud NAT (so internal VMs can reach internet)
+# ═══════════════════════════════════════════════════════════════
+setup_cloud_nat() {
+  log_header "Phase 0/4 — Setting up Cloud NAT for internet access"
+  
+  # Check if router already exists
+  if gcloud compute routers describe ecom-nat-router --region="$REGION" &>/dev/null; then
+    log_success "Cloud Router 'ecom-nat-router' already exists"
+  else
+    log_step "Creating Cloud Router..."
+    gcloud compute routers create ecom-nat-router \
+      --region="$REGION" \
+      --network=default \
+      --quiet
+    log_success "Cloud Router created"
+  fi
+  
+  # Check if NAT config already exists
+  if gcloud compute routers nats describe ecom-nat-config --router=ecom-nat-router --region="$REGION" &>/dev/null; then
+    log_success "Cloud NAT 'ecom-nat-config' already exists"
+  else
+    log_step "Creating Cloud NAT gateway (this gives internal VMs internet access)..."
+    gcloud compute routers nats create ecom-nat-config \
+      --router=ecom-nat-router \
+      --region="$REGION" \
+      --auto-allocate-nat-external-ips \
+      --nat-all-subnet-ip-ranges \
+      --quiet
+    log_success "Cloud NAT created"
+  fi
+  
+  # Wait for NAT to propagate
+  log_step "Waiting 30s for Cloud NAT to propagate..."
+  sleep 30
+  log_success "Cloud NAT is ready — internal VMs can now access the internet"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#  PHASE 1: Install Docker on all VMs
+# ═══════════════════════════════════════════════════════════════
 setup_docker_on_vm() {
   local vm_name=$1
   log_step "Setting up Docker on ${vm_name}..."
   
   run_on_vm "$vm_name" "
-    # Check if Docker is already installed
-    if command -v docker &> /dev/null && docker --version &> /dev/null; then
-      echo 'Docker already installed on ${vm_name}'
-    else
-      sudo apt-get update -y
-      sudo apt-get install -y docker.io docker-compose-v2 git
-      sudo systemctl start docker
-      sudo systemctl enable docker
-      sudo usermod -aG docker \$USER
-      echo 'Docker installed on ${vm_name}'
+    set -e
+    
+    # Check if Docker is already installed and working
+    if command -v docker &>/dev/null && sudo docker info &>/dev/null; then
+      echo \"Docker already installed and running on ${vm_name}\"
+      exit 0
     fi
+    
+    echo \"Installing Docker on ${vm_name}...\"
+    sudo apt-get update -y
+    sudo apt-get install -y docker.io docker-compose-v2 git
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo usermod -aG docker \$USER
+    
+    # Verify Docker is running
+    sudo docker --version
+    echo \"Docker successfully installed on ${vm_name}\"
   "
   
   if [ $? -eq 0 ]; then
     log_success "Docker ready on ${vm_name}"
+    return 0
   else
-    log_error "Failed to setup Docker on ${vm_name}"
+    log_error "FAILED to setup Docker on ${vm_name}"
     return 1
   fi
 }
 
-# ─── Step 2: Clone repo and deploy a service VM ──────────────
+# ═══════════════════════════════════════════════════════════════
+#  PHASE 2: Clone repo and deploy a service VM
+# ═══════════════════════════════════════════════════════════════
 deploy_service_vm() {
   local vm_name=$1
   local service_dir=$2
@@ -115,58 +164,64 @@ deploy_service_vm() {
   log_step "Deploying ${service_dir} service on ${vm_name}..."
   
   run_on_vm "$vm_name" "
-    # Use newgrp to get docker group access without re-login
+    set -e
+    
     # Clone or update repo
-    if [ -d '${PROJECT_DIR}' ]; then
+    if [ -d \"${PROJECT_DIR}\" ]; then
       cd ${PROJECT_DIR}
       git fetch origin
       git reset --hard origin/${BRANCH}
-      echo 'Repo updated on ${vm_name}'
+      echo \"Repo updated on ${vm_name}\"
     else
       git clone ${REPO}
       cd ${PROJECT_DIR}
-      echo 'Repo cloned on ${vm_name}'
+      echo \"Repo cloned on ${vm_name}\"
     fi
     
-    # Deploy using docker compose
+    # Deploy using docker compose (use sudo since group change needs re-login)
     cd deploy/${service_dir}
     sudo docker compose down 2>/dev/null || true
     sudo docker compose up --build -d
     
-    echo ''
-    echo '--- Container status on ${vm_name} ---'
+    echo \"\"
+    echo \"--- Container status on ${vm_name} ---\"
     sudo docker compose ps
   "
   
   if [ $? -eq 0 ]; then
     log_success "${vm_name} deployed successfully"
+    return 0
   else
-    log_error "Failed to deploy ${vm_name}"
+    log_error "FAILED to deploy ${vm_name}"
     return 1
   fi
 }
 
-# ─── Step 3: Deploy gateway VM ────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  PHASE 3: Deploy gateway VM
+# ═══════════════════════════════════════════════════════════════
 deploy_gateway_vm() {
   log_step "Deploying gateway + client on gateway-vm..."
   
   run_on_vm "gateway-vm" "
+    set -e
+    
     # Clone or update repo
-    if [ -d '${PROJECT_DIR}' ]; then
+    if [ -d \"${PROJECT_DIR}\" ]; then
       cd ${PROJECT_DIR}
       git fetch origin
       git reset --hard origin/${BRANCH}
-      echo 'Repo updated on gateway-vm'
+      echo \"Repo updated on gateway-vm\"
     else
       git clone ${REPO}
       cd ${PROJECT_DIR}
-      echo 'Repo cloned on gateway-vm'
+      echo \"Repo cloned on gateway-vm\"
     fi
     
     cd deploy/gateway
     
     # Auto-generate .env file with actual VM IPs
-    cat > .env << 'ENVEOF'
+    cat > .env << EOF
 PRODUCT_VM_IP=${PRODUCT_VM_IP}
 SEARCH_VM_IP=${SEARCH_VM_IP}
 CART_VM_IP=${CART_VM_IP}
@@ -175,30 +230,33 @@ PAYMENT_VM_IP=${PAYMENT_VM_IP}
 REVIEW_VM_IP=${REVIEW_VM_IP}
 USER_VM_IP=${USER_VM_IP}
 GATEWAY_EXTERNAL_IP=${GATEWAY_EXTERNAL_IP}
-ENVEOF
+EOF
     
-    echo '.env file created:'
+    echo \".env file created:\"
     cat .env
-    echo ''
+    echo \"\"
     
     # Deploy
     sudo docker compose down 2>/dev/null || true
     sudo docker compose up --build -d
     
-    echo ''
-    echo '--- Container status on gateway-vm ---'
+    echo \"\"
+    echo \"--- Container status on gateway-vm ---\"
     sudo docker compose ps
   "
   
   if [ $? -eq 0 ]; then
     log_success "gateway-vm deployed successfully"
+    return 0
   else
-    log_error "Failed to deploy gateway-vm"
+    log_error "FAILED to deploy gateway-vm"
     return 1
   fi
 }
 
-# ─── Step 4: Health check all services ────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  PHASE 4: Health check
+# ═══════════════════════════════════════════════════════════════
 health_check() {
   local vm_name=$1
   local port=$2
@@ -232,25 +290,44 @@ echo -e "  Zone:     ${CYAN}${ZONE}${NC}"
 echo -e "  Gateway:  ${CYAN}http://${GATEWAY_EXTERNAL_IP}:3000${NC}"
 echo ""
 
+# ── Phase 0: Cloud NAT ───────────────────────────────────────
+setup_cloud_nat
+
 # ── Phase 1: Install Docker on ALL VMs ────────────────────────
 log_header "Phase 1/4 — Installing Docker on all VMs"
 
 ALL_VMS=("product-vm" "search-vm" "cart-vm" "order-vm" "payment-vm" "review-vm" "user-vm" "gateway-vm")
+DOCKER_FAILED=0
 
 for vm in "${ALL_VMS[@]}"; do
-  setup_docker_on_vm "$vm"
+  if ! setup_docker_on_vm "$vm"; then
+    DOCKER_FAILED=$((DOCKER_FAILED + 1))
+  fi
 done
 
-log_success "Docker installed on all VMs"
+if [ $DOCKER_FAILED -gt 0 ]; then
+  log_error "${DOCKER_FAILED} VM(s) failed Docker setup. Cannot continue."
+  echo -e "${RED}  Fix the failing VMs and re-run the script.${NC}"
+  exit 1
+fi
+
+log_success "Docker installed on all 8 VMs"
 
 # ── Phase 2: Deploy 7 microservice VMs ────────────────────────
 log_header "Phase 2/4 — Deploying 7 microservice VMs"
 
+DEPLOY_FAILED=0
 for vm in "${!SERVICE_VMS[@]}"; do
-  deploy_service_vm "$vm" "${SERVICE_VMS[$vm]}"
+  if ! deploy_service_vm "$vm" "${SERVICE_VMS[$vm]}"; then
+    DEPLOY_FAILED=$((DEPLOY_FAILED + 1))
+  fi
 done
 
-log_success "All 7 microservices deployed"
+if [ $DEPLOY_FAILED -gt 0 ]; then
+  log_warn "${DEPLOY_FAILED} service VM(s) failed deployment"
+else
+  log_success "All 7 microservices deployed"
+fi
 
 # ── Phase 3: Wait for services, then deploy gateway ──────────
 log_header "Phase 3/4 — Deploying Gateway + Client VM"
@@ -278,7 +355,7 @@ HEALTH_PORTS=(
   ["gateway-vm"]="4000"
 )
 
-FAILED=0
+HEALTH_FAILED=0
 for vm in "${!HEALTH_PORTS[@]}"; do
   port="${HEALTH_PORTS[$vm]}"
   log_step "Checking ${vm} (:${port})..."
@@ -286,7 +363,7 @@ for vm in "${!HEALTH_PORTS[@]}"; do
     log_success "${vm} is healthy ✓"
   else
     log_warn "${vm} health check failed (may still be starting)"
-    FAILED=$((FAILED + 1))
+    HEALTH_FAILED=$((HEALTH_FAILED + 1))
   fi
 done
 
@@ -300,13 +377,13 @@ echo -e "  🌐 Website:    ${CYAN}http://${GATEWAY_EXTERNAL_IP}:3000${NC}"
 echo -e "  🔗 API Health: ${CYAN}http://${GATEWAY_EXTERNAL_IP}:4000/health${NC}"
 echo ""
 
-if [ $FAILED -gt 0 ]; then
-  echo -e "${YELLOW}  ⚠ ${FAILED} service(s) may still be starting up.${NC}"
-  echo -e "${YELLOW}    Run health checks again in a minute:${NC}"
+if [ $HEALTH_FAILED -gt 0 ]; then
+  echo -e "${YELLOW}  ⚠ ${HEALTH_FAILED} service(s) may still be starting up.${NC}"
+  echo -e "${YELLOW}    Check again in a minute:${NC}"
   echo -e "${YELLOW}    curl http://${GATEWAY_EXTERNAL_IP}:4000/health${NC}"
 fi
 
 echo ""
 echo -e "  To check logs on any VM:"
-echo -e "  ${CYAN}gcloud compute ssh <vm-name> --zone=${ZONE} --command='cd ${PROJECT_DIR}/deploy/<service> && sudo docker compose logs'${NC}"
+echo -e "  ${CYAN}gcloud compute ssh <vm-name> --zone=${ZONE} --command=\"cd ${PROJECT_DIR}/deploy/<service> && sudo docker compose logs\"${NC}"
 echo ""
